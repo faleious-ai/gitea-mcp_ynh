@@ -1,0 +1,31 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression --message="Installing Gitea MCP configuration..." --weight=1
+install -m 0644 "$YNH_APP_BASEDIR/conf/image.env" "$install_dir/image.env"
+chown -R "$app:$app" "$install_dir" "$data_dir"
+
+load_image_pin "$install_dir/image.env"
+
+ynh_script_progression --message="Preparing Docker access..." --weight=1
+ynh_systemd_action --service_name="docker" --action="start" --log_path="systemd"
+usermod -aG docker "$app"
+
+ynh_script_progression --message="Pulling the immutable Gitea MCP image..." --weight=2
+docker pull "$image"
+
+ynh_script_progression --message="Installing reverse proxy and service..." --weight=2
+ynh_add_nginx_config
+ynh_add_systemd_config
+
+yunohost service add "$app" \
+    --description="Official Model Context Protocol server for Gitea" \
+    --log="systemd"
+
+ynh_script_progression --message="Starting Gitea MCP..." --weight=1
+ynh_systemd_action --service_name="$app" --action="start" --log_path="systemd"
+ynh_systemd_action --service_name="$app" --action="status" --log_path="systemd"
+
+ynh_script_progression --message="Installation of $app completed" --last
