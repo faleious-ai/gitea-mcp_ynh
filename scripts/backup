@@ -1,0 +1,17 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression --message="Stopping Gitea MCP for backup..." --weight=1
+ynh_systemd_action --service_name="$app" --action="stop" --log_path="systemd"
+
+ynh_backup --src_path="$install_dir"
+ynh_backup --src_path="$data_dir"
+ynh_backup --src_path="/etc/systemd/system/$app.service"
+ynh_backup --src_path="/etc/nginx/conf.d/$domain.d/$app.conf"
+
+ynh_script_progression --message="Restarting Gitea MCP..." --weight=1
+ynh_systemd_action --service_name="$app" --action="start" --log_path="systemd"
+
+ynh_script_progression --message="Backup of $app completed" --last
