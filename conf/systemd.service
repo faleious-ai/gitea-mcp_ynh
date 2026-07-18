@@ -1,0 +1,35 @@
+[Unit]
+Description=Gitea MCP Server
+Documentation=https://gitea.com/gitea/gitea-mcp
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=__APP__
+Group=__APP__
+SupplementaryGroups=docker
+ExecStartPre=/usr/bin/docker pull __IMAGE__
+ExecStart=/usr/bin/docker run --rm --name __APP__ --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m __IMAGE__ -t http --host __GITEA_URL__ --port __PORT__
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=300s
+TimeoutStopSec=45s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
