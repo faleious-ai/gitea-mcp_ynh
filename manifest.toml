@@ -1,0 +1,71 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/master/schemas/manifest.v2.schema.json
+
+packaging_format = 2
+
+id = "gitea-mcp"
+name = "Gitea MCP"
+description.en = "Official Model Context Protocol server for Gitea"
+description.fr = "Serveur Model Context Protocol officiel pour Gitea"
+description.pt = "Servidor Model Context Protocol oficial para Gitea"
+
+version = "1.3.0~ynh1"
+
+maintainers = ["faleious-ai"]
+
+[upstream]
+license = "MIT"
+website = "https://gitea.com/gitea/gitea-mcp"
+admindoc = "https://gitea.com/gitea/gitea-mcp"
+code = "https://gitea.com/gitea/gitea-mcp"
+
+[integration]
+yunohost = ">= 12.1.38"
+helpers_version = "2.1"
+architectures = ["amd64", "arm64"]
+multi_instance = true
+ldap = "not_relevant"
+sso = false
+disk = "250M"
+ram.build = "0M"
+ram.runtime = "100M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.path]
+    type = "path"
+    default = "/gitea-mcp"
+
+    [install.gitea_url]
+    ask.en = "URL of the Gitea instance"
+    ask.fr = "URL de l’instance Gitea"
+    ask.pt = "URL da instância Gitea"
+    type = "url"
+    example = "https://git.example.org"
+
+    [install.init_main_permission]
+    help.en = "The endpoint must be reachable by MCP clients. Gitea authenticates each request with its Bearer token."
+    help.fr = "Le point d’accès doit être joignable par les clients MCP. Gitea authentifie chaque requête avec son jeton Bearer."
+    help.pt = "O endpoint deve ser acessível aos clientes MCP. O Gitea autentica cada requisição pelo token Bearer."
+    type = "group"
+    default = "visitors"
+
+[resources]
+    [resources.system_user]
+
+    [resources.install_dir]
+
+    [resources.data_dir]
+
+    [resources.permissions]
+    main.url = "/"
+    main.show_tile = false
+    main.auth_header = false
+    main.protected = false
+
+    [resources.ports]
+    http.default = 8091
+
+    [resources.apt]
+    packages = "ca-certificates, docker.io"
