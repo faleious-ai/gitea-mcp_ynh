@@ -1,0 +1,31 @@
+name: Package validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate package invariants
+        run: python3 tools/validate_package.py
+      - name: Compile maintenance tools
+        run: python3 -m py_compile tools/*.py
+      - name: Parse shell scripts
+        run: |
+          set -euo pipefail
+          for script in scripts/*; do bash -n "$script"; done
+      - name: Verify pinned official image
+        run: |
+          image=$(sed -n 's/^GITEA_MCP_IMAGE=//p' conf/image.env)
+          docker manifest inspect "$image" >/dev/null
+          docker run --rm "$image" --help >/dev/null
