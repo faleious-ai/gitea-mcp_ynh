@@ -1,0 +1,12 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/master/schemas/tests.v1.schema.json
+
+test_format = 1.0
+
+[default]
+    args.domain = "domain.tld"
+    args.path = "/gitea-mcp"
+    args.gitea_url = "https://gitea.com"
+    args.init_main_permission = "visitors"
+
+    # The package stores no access token. Protocol authentication is exercised
+    # separately with a disposable Gitea instance and a short-lived test token.
