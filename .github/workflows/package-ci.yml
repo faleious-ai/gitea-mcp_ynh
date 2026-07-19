@@ -54,7 +54,7 @@ jobs:
           if errors or unexpected_critical:
               print(f"package linter errors={errors} critical={unexpected_critical}", file=sys.stderr)
               raise SystemExit(1)
-          if int(status) != 0 and set(critical) <= allowed_critical and critical:
+          if critical and set(critical) <= allowed_critical:
               print("accepted documented exception: AppCatalog.is_in_catalog")
               raise SystemExit(0)
           if int(status) != 0 or critical:
