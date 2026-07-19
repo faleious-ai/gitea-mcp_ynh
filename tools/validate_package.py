@@ -56,6 +56,12 @@ def main() -> int:
         errors.append("mutable image tag is forbidden")
 
     nginx = (ROOT / "conf/nginx.conf").read_text(encoding="utf-8")
+    if "include proxy_params_no_auth;" not in nginx:
+        errors.append("nginx must include YunoHost proxy_params_no_auth")
+    if re.search(r"^\s*proxy_http_version\b", nginx, re.MULTILINE):
+        errors.append(
+            "nginx must not redeclare proxy_http_version already provided by proxy_params_no_auth"
+        )
     if "Authorization $http_authorization" not in nginx:
         errors.append("nginx must preserve the Authorization header")
     if "proxy_buffering off" not in nginx:
