@@ -9,6 +9,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r"^(\d+\.\d+\.\d+)~ynh\d+$")
 IMAGE = re.compile(r"^docker\.io/gitea/gitea-mcp-server@sha256:[0-9a-f]{64}$")
+SYSTEMCTL = "ynh_systemctl"
+NGINX_ADD = "ynh_config_add_nginx"
+NGINX_REMOVE = "ynh_config_remove_nginx"
+SYSTEMD_ADD = "ynh_config_add_systemd"
+SYSTEMD_REMOVE = "ynh_config_remove_systemd"
+OBSOLETE_HELPERS = {
+    "ynh_systemd_action": SYSTEMCTL,
+    "ynh_add_nginx_config": NGINX_ADD,
+    "ynh_remove_nginx_config": NGINX_REMOVE,
+    "ynh_add_systemd_config": SYSTEMD_ADD,
+    "ynh_remove_systemd_config": SYSTEMD_REMOVE,
+}
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -52,15 +64,47 @@ def main() -> int:
         errors.append("nginx must use the named YunoHost HTTP port")
 
     service = (ROOT / "conf/systemd.service").read_text(encoding="utf-8")
-    for required in ("__IMAGE__", "/app/gitea-mcp", "-t http", "--host __GITEA_URL__", "--port __PORT_HTTP__", "--read-only"):
+    for required in (
+        "__IMAGE__",
+        "/app/gitea-mcp",
+        "-t http",
+        "--host __GITEA_URL__",
+        "--port __PORT_HTTP__",
+        "--read-only",
+    ):
         if required not in service:
             errors.append(f"systemd service missing {required}")
     if "--privileged" in service or "/var/run/docker.sock" in service:
         errors.append("MCP container must not be privileged or mount the Docker socket")
 
-    for script in (ROOT / "scripts").iterdir():
-        if script.is_file() and b"\r\n" in script.read_bytes():
-            errors.append(f"CRLF line endings in {script.relative_to(ROOT)}")
+    scripts: dict[str, str] = {}
+    for script_path in (ROOT / "scripts").iterdir():
+        if not script_path.is_file():
+            continue
+        script = script_path.read_text(encoding="utf-8")
+        scripts[script_path.name] = script
+        for obsolete, replacement in OBSOLETE_HELPERS.items():
+            if obsolete in script:
+                errors.append(
+                    f"scripts/{script_path.name} uses obsolete {obsolete}; use {replacement}"
+                )
+        if b"\r\n" in script_path.read_bytes():
+            errors.append(f"CRLF line endings in {script_path.relative_to(ROOT)}")
+
+    for lifecycle in ("install", "upgrade"):
+        script = scripts[lifecycle]
+        for required in (SYSTEMCTL, NGINX_ADD, SYSTEMD_ADD):
+            if required not in script:
+                errors.append(f"{lifecycle} must use {required}")
+
+    restore_script = scripts["restore"]
+    if SYSTEMCTL not in restore_script:
+        errors.append("restore must use ynh_systemctl")
+
+    remove_script = scripts["remove"]
+    for required in (SYSTEMCTL, NGINX_REMOVE, SYSTEMD_REMOVE):
+        if required not in remove_script:
+            errors.append(f"remove must use {required}")
 
     if errors:
         for error in errors:
