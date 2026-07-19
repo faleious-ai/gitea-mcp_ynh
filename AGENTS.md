@@ -67,6 +67,10 @@ intentionally points to that official repository. The linter's corresponding
 documentation warning is an accepted, documented exception until upstream
 publishes a dedicated admin-documentation URL.
 
+Because this fork is intentionally maintained outside the YunoHost application
+catalog, CI permits only the linter's `AppCatalog.is_in_catalog` result for
+this repository. Any other linter error or critical result remains fatal.
+
 Lifecycle validation must cover install, service startup, authenticated `initialize` and `tools/list`, unauthenticated rejection, upgrade, backup/restore, removal and correct operation through the configured YunoHost path. Do not claim CI or protocol success without evidence tied to an exact commit.
 
 ## Automation

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source _common.sh
+source ../settings/scripts/_common.sh
 source /usr/share/yunohost/helpers
 
 ynh_script_progression --message="Restoring Gitea MCP files..." --weight=2

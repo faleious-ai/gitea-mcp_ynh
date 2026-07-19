@@ -36,7 +36,32 @@ jobs:
           git clone --depth 1 https://github.com/YunoHost/package_linter.git "$linter_dir"
           python3 -m venv "$linter_dir/venv"
           "$linter_dir/venv/bin/python" -m pip install --requirement "$linter_dir/requirements.txt"
-          "$linter_dir/venv/bin/python" "$linter_dir/package_linter.py" .
+          linter_report="$RUNNER_TEMP/package-linter.json"
+          set +e
+          "$linter_dir/venv/bin/python" "$linter_dir/package_linter.py" --json . > "$linter_report"
+          linter_status=$?
+          set -e
+          python3 - "$linter_report" "$linter_status" <<'PY'
+          import json
+          import sys
+
+          report_path, status = sys.argv[1:]
+          report = json.load(open(report_path, encoding="utf-8"))
+          errors = report.get("error", [])
+          critical = report.get("critical", [])
+          allowed_critical = {"AppCatalog.is_in_catalog"}
+          unexpected_critical = [name for name in critical if name not in allowed_critical]
+          if errors or unexpected_critical:
+              print(f"package linter errors={errors} critical={unexpected_critical}", file=sys.stderr)
+              raise SystemExit(1)
+          if int(status) != 0 and set(critical) <= allowed_critical and critical:
+              print("accepted documented exception: AppCatalog.is_in_catalog")
+              raise SystemExit(0)
+          if int(status) != 0 or critical:
+              print(f"package linter exited {status} without an allowed exception", file=sys.stderr)
+              raise SystemExit(1)
+          print("package linter passed")
+          PY
       - name: Verify pinned official image
         run: |
           set -euo pipefail
