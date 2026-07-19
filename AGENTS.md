@@ -63,6 +63,12 @@ legacy `--service_name=...` argument. Keep `ynh_systemd_action`,
 `ynh_remove_systemd_config` out of every lifecycle script; the local validator
 enforces this contract.
 
+`conf/nginx.conf` includes YunoHost's `proxy_params_no_auth`. Do not redeclare
+`proxy_http_version` in the app template because the shared include already
+sets it; Nginx treats the duplicate directive as a fatal configuration error.
+The package validator enforces this rule while still requiring explicit
+Authorization forwarding and disabled response buffering for MCP streaming.
+
 The official image has no entrypoint and its command is `/app/gitea-mcp`; the
 service and CI smoke test must invoke that binary explicitly. The GitHub
 workflows also run the current official `YunoHost/package_linter` procedure:
