@@ -136,8 +136,13 @@ jobs:
               docker logs "$container"
               exit 1
             fi
-            if curl --silent --show-error --output /dev/null --max-time 2 "http://127.0.0.1:${port}/mcp"; then
-              echo "streamable-http smoke test reached /mcp"
+            if curl --silent --show-error --output /dev/null --max-time 5 \
+              --request POST \
+              --header "Content-Type: application/json" \
+              --header "Accept: application/json, text/event-stream" \
+              --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci-smoke","version":"1"}}}' \
+              "http://127.0.0.1:${port}/mcp"; then
+              echo "streamable-http smoke test completed initialize request"
               exit 0
             fi
             sleep 1
