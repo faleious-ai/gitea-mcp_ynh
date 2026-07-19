@@ -55,6 +55,14 @@ docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m "$image" \
   /app/gitea-mcp --help
 ```
 
+YunoHost 12 with helpers 2.1 uses `ynh_systemctl`, `ynh_config_add_nginx`,
+`ynh_config_remove_nginx`, `ynh_config_add_systemd` and
+`ynh_config_remove_systemd`. Service operations use `--service=...`, not the
+legacy `--service_name=...` argument. Keep `ynh_systemd_action`,
+`ynh_add_nginx_config`, `ynh_remove_nginx_config`, `ynh_add_systemd_config` and
+`ynh_remove_systemd_config` out of every lifecycle script; the local validator
+enforces this contract.
+
 The official image has no entrypoint and its command is `/app/gitea-mcp`; the
 service and CI smoke test must invoke that binary explicitly. The GitHub
 workflows also run the current official `YunoHost/package_linter` procedure:
