@@ -11,7 +11,7 @@ User=__APP__
 Group=__APP__
 SupplementaryGroups=docker
 ExecStartPre=/usr/bin/docker pull __IMAGE__
-ExecStart=/usr/bin/docker run --rm --name __APP__ --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m __IMAGE__ -t http --host __GITEA_URL__ --port __PORT_HTTP__
+ExecStart=/usr/bin/docker run --rm --name __APP__ --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m __IMAGE__ /app/gitea-mcp -t http --host __GITEA_URL__ --port __PORT_HTTP__
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=300s

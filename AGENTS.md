@@ -41,9 +41,31 @@ The YunoHost route is therefore reachable without portal authentication and hidd
 ```bash
 python3 tools/validate_package.py
 python3 -m py_compile tools/*.py
-for script in scripts/*; do bash -n "$script"; done
-docker manifest inspect "$(sed -n 's/^GITEA_MCP_IMAGE=//p' conf/image.env)"
+find scripts -maxdepth 1 -type f ! -name '*.sql' -print0 |
+  sort -z |
+  while IFS= read -r -d '' script; do
+    echo "Checking ${script}"
+    bash -n "$script"
+  done
+image="$(sed -n 's/^GITEA_MCP_IMAGE=//p' conf/image.env)"
+docker manifest inspect "$image"
+docker pull "$image"
+docker image inspect "$image"
+docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m "$image" \
+  /app/gitea-mcp --help
 ```
+
+The official image has no entrypoint and its command is `/app/gitea-mcp`; the
+service and CI smoke test must invoke that binary explicitly. The GitHub
+workflows also run the current official `YunoHost/package_linter` procedure:
+clone the linter, create a virtual environment, install its `requirements.txt`
+and invoke `package_linter.py` against this package.
+
+The upstream MCP project currently publishes its CLI and HTTP contract in its
+repository README rather than a separate documentation site, so `upstream.admindoc`
+intentionally points to that official repository. The linter's corresponding
+documentation warning is an accepted, documented exception until upstream
+publishes a dedicated admin-documentation URL.
 
 Lifecycle validation must cover install, service startup, authenticated `initialize` and `tools/list`, unauthenticated rejection, upgrade, backup/restore, removal and correct operation through the configured YunoHost path. Do not claim CI or protocol success without evidence tied to an exact commit.
 

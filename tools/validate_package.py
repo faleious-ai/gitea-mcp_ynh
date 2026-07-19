@@ -52,7 +52,7 @@ def main() -> int:
         errors.append("nginx must use the named YunoHost HTTP port")
 
     service = (ROOT / "conf/systemd.service").read_text(encoding="utf-8")
-    for required in ("__IMAGE__", "-t http", "--host __GITEA_URL__", "--port __PORT_HTTP__", "--read-only"):
+    for required in ("__IMAGE__", "/app/gitea-mcp", "-t http", "--host __GITEA_URL__", "--port __PORT_HTTP__", "--read-only"):
         if required not in service:
             errors.append(f"systemd service missing {required}")
     if "--privileged" in service or "/var/run/docker.sock" in service:

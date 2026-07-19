@@ -12,8 +12,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
       - name: Validate package invariants
@@ -23,9 +23,99 @@ jobs:
       - name: Parse shell scripts
         run: |
           set -euo pipefail
-          for script in scripts/*; do bash -n "$script"; done
+          find scripts -maxdepth 1 -type f ! -name '*.sql' -print0 |
+            sort -z |
+            while IFS= read -r -d '' script; do
+              echo "Checking ${script}"
+              bash -n "$script"
+            done
+      - name: Run official YunoHost package linter
+        run: |
+          set -euo pipefail
+          linter_dir="$RUNNER_TEMP/package_linter"
+          git clone --depth 1 https://github.com/YunoHost/package_linter.git "$linter_dir"
+          python3 -m venv "$linter_dir/venv"
+          "$linter_dir/venv/bin/python" -m pip install --requirement "$linter_dir/requirements.txt"
+          "$linter_dir/venv/bin/python" "$linter_dir/package_linter.py" .
       - name: Verify pinned official image
         run: |
+          set -euo pipefail
           image=$(sed -n 's/^GITEA_MCP_IMAGE=//p' conf/image.env)
-          docker manifest inspect "$image" >/dev/null
-          docker run --rm "$image" --help >/dev/null
+          case "$image" in
+            docker.io/gitea/gitea-mcp-server@sha256:[0-9a-f]*) ;;
+            *) echo "image is not pinned to the official repository" >&2; exit 1 ;;
+          esac
+
+          docker manifest inspect "$image" > "$RUNNER_TEMP/mcp-manifest.json"
+          python3 - "$RUNNER_TEMP/mcp-manifest.json" "$image" <<'PY'
+          import json
+          import re
+          import sys
+
+          manifest_path, image = sys.argv[1:]
+          if not re.fullmatch(r"docker\.io/gitea/gitea-mcp-server@sha256:[0-9a-f]{64}", image):
+              raise SystemExit("image reference is not the official immutable pin")
+          data = json.load(open(manifest_path, encoding="utf-8"))
+          platforms = {
+              (item.get("platform", {}).get("os"), item.get("platform", {}).get("architecture"))
+              for item in data.get("manifests", [])
+          }
+          if ("linux", "amd64") not in platforms:
+              raise SystemExit("official image does not publish linux/amd64")
+          print("manifest-valid linux/amd64")
+          PY
+
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .}}' > "$RUNNER_TEMP/mcp-image.json"
+          python3 - "$RUNNER_TEMP/mcp-image.json" "$image" <<'PY'
+          import json
+          import sys
+
+          image_path, image_ref = sys.argv[1:]
+          data = json.load(open(image_path, encoding="utf-8"))
+          config = data["Config"]
+          if data["Os"] != "linux" or data["Architecture"] != "amd64":
+              raise SystemExit("pulled image is not linux/amd64")
+          expected_digest = image_ref.split("@", 1)[1]
+          if not any(
+              item.rsplit("@", 1)[-1] == expected_digest
+              and item.split("@", 1)[0] in ("docker.io/gitea/gitea-mcp-server", "gitea/gitea-mcp-server")
+              for item in data.get("RepoDigests", [])
+          ):
+              raise SystemExit("pulled image digest does not match the declared reference")
+          if config.get("User") in (None, "", "0", "root", "root:root"):
+              raise SystemExit("official image must run as a non-root user")
+          if config.get("WorkingDir") != "/app":
+              raise SystemExit("unexpected official image working directory")
+          if config.get("Cmd") != ["/app/gitea-mcp"]:
+              raise SystemExit("unexpected official image command")
+          if config.get("Entrypoint") not in (None, []):
+              raise SystemExit("unexpected official image entrypoint")
+          print(f"image-valid user={config['User']} workdir={config['WorkingDir']} cmd={config['Cmd'][0]}")
+          PY
+
+          container="gitea-mcp-smoke-${GITHUB_RUN_ID:-local}"
+          port=18091
+          cleanup() {
+            if docker container inspect "$container" >/dev/null 2>&1; then
+              docker rm --force "$container" >/dev/null
+            fi
+          }
+          trap cleanup EXIT
+          docker run --detach --name "$container" --network host --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=32m "$image" \
+            /app/gitea-mcp -t http --host http://127.0.0.1:9 --port "$port"
+
+          for attempt in $(seq 1 30); do
+            if [ "$(docker inspect --format '{{.State.Running}}' "$container")" != "true" ]; then
+              docker logs "$container"
+              exit 1
+            fi
+            if curl --silent --show-error --output /dev/null --max-time 2 "http://127.0.0.1:${port}/mcp"; then
+              echo "streamable-http smoke test reached /mcp"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$container"
+          exit 1
