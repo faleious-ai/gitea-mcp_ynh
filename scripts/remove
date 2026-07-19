@@ -4,14 +4,14 @@ source _common.sh
 source /usr/share/yunohost/helpers
 
 ynh_script_progression --message="Stopping Gitea MCP..." --weight=1
-ynh_systemd_action --service_name="$app" --action="stop" --log_path="systemd" || true
+ynh_systemctl --service="$app" --action="stop" --log_path="systemd" || true
 
 if ynh_exec_warn_less yunohost service status "$app" >/dev/null 2>&1; then
     yunohost service remove "$app"
 fi
 
 ynh_script_progression --message="Removing service and reverse proxy configuration..." --weight=1
-ynh_remove_systemd_config
-ynh_remove_nginx_config
+ynh_config_remove_systemd
+ynh_config_remove_nginx
 
 ynh_script_progression --message="Removal of $app completed" --last
